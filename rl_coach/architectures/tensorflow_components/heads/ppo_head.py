@@ -25,6 +25,11 @@ from rl_coach.spaces import BoxActionSpace, DiscreteActionSpace
 from rl_coach.spaces import SpacesDefinition
 from rl_coach.utils import eps
 
+# Since we are using log prob it is possible to encounter a 0 log 0 condition
+# which will tank the training by producing NaN's therefore it is necessary
+# to add a zero offset to all networks with discreete distributions to prevent
+# this isssue
+ZERO_OFFSET = 1e-8
 
 class PPOHead(Head):
     def __init__(self, agent_parameters: AgentParameters, spaces: SpacesDefinition, network_name: str,
@@ -68,8 +73,9 @@ class PPOHead(Head):
         if self.use_kl_regularization:
             # no clipping => use kl regularization
             self.weighted_kl_divergence = tf.multiply(self.kl_coefficient, self.kl_divergence)
-            self.regularizations += [self.weighted_kl_divergence + self.high_kl_penalty_coefficient * \
-                                                tf.square(tf.maximum(0.0, self.kl_divergence - self.kl_cutoff))]
+            self.regularizations = self.weighted_kl_divergence + self.high_kl_penalty_coefficient * \
+                                                tf.square(tf.maximum(0.0, self.kl_divergence - self.kl_cutoff))
+            tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, self.regularizations)
 
         # calculate surrogate loss
         self.advantages = tf.placeholder(tf.float32, [None], name="advantages")
@@ -92,7 +98,8 @@ class PPOHead(Head):
             # add entropy regularization
             if self.beta:
                 self.entropy = tf.reduce_mean(self.policy_distribution.entropy())
-                self.regularizations += [-tf.multiply(self.beta, self.entropy, name='entropy_regularization')]
+                self.regularizations = -tf.multiply(self.beta, self.entropy, name='entropy_regularization')
+                tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, self.regularizations)
 
         self.loss = self.surrogate_loss
         tf.losses.add_loss(self.loss)
@@ -107,7 +114,8 @@ class PPOHead(Head):
         # Policy Head
         self.input = [self.actions, self.old_policy_mean]
         policy_values = self.dense_layer(num_actions)(input_layer, name='policy_fc')
-        self.policy_mean = tf.nn.softmax(policy_values, name="policy")
+        # Prevent distributions with 0 values
+        self.policy_mean = tf.maximum(tf.nn.softmax(policy_values, name="policy"), ZERO_OFFSET)
 
         # define the distributions for the policy and the old policy
         self.policy_distribution = tf.contrib.distributions.Categorical(probs=self.policy_mean)

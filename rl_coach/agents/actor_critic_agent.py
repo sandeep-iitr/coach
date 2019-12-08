@@ -32,6 +32,8 @@ from rl_coach.memories.episodic.single_episode_buffer import SingleEpisodeBuffer
 from rl_coach.spaces import DiscreteActionSpace, BoxActionSpace
 from rl_coach.utils import last_sample
 
+import time
+import pickle
 
 class ActorCriticAlgorithmParameters(AlgorithmParameters):
     """
@@ -64,6 +66,8 @@ class ActorCriticAlgorithmParameters(AlgorithmParameters):
         self.num_steps_between_gradient_updates = 5000  # this is called t_max in all the papers
         self.gae_lambda = 0.96
         self.estimate_state_value_using_gae = False
+
+
 
 
 class ActorCriticNetworkParameters(NetworkParameters):
@@ -99,6 +103,8 @@ class ActorCriticAgent(PolicyOptimizationAgent):
         self.state_values = self.register_signal('Values')
         self.value_loss = self.register_signal('Value Loss')
         self.policy_loss = self.register_signal('Policy Loss')
+
+        self.debug_time = []
 
     # Discounting function used to calculate discounted returns.
     def discount(self, x, gamma):
@@ -183,4 +189,19 @@ class ActorCriticAgent(PolicyOptimizationAgent):
 
     def get_prediction(self, states):
         tf_input_state = self.prepare_batch_for_inference(states, "main")
-        return self.networks['main'].online_network.predict(tf_input_state)[1:]  # index 0 is the state value
+        #print("Debug : Sandeep, Prediction called")
+        #print('*'*100)
+
+        #t_s = time.time()
+        pred = self.networks['main'].online_network.predict(tf_input_state)[1:]  # index 0 is the state value
+        #t_e = time.time()
+
+        #self.debug_time.append([t_e-t_s])
+
+        # if(len(self.debug_time)%50==0):
+        #     with open('time_debug_coach_'+str(len(self.debug_time))+'.pkl', 'wb') as f:
+        #         print("Sandeep: Saving the coach timing data")
+        #         pickle.dump(self.debug_time, f)
+
+
+        return pred

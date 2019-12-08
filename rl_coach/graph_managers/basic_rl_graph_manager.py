@@ -68,6 +68,11 @@ class BasicRLGraphManager(GraphManager):
         self.agent_params.name = "agent"
         agent = short_dynamic_import(self.agent_params.path)(self.agent_params)
 
+        # print("Debug : Sandeep")
+        # print(self.agent_params.path)
+        # print('*'*100)
+        # print(self.agent_params)
+
         # set level manager
         level_manager = LevelManager(agents=agent, environment=env, name="main_level")
 
@@ -81,4 +86,3 @@ class BasicRLGraphManager(GraphManager):
 
     def get_agent(self):
         return self.level_managers[0].agents['agent']
-
